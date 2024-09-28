@@ -8,7 +8,6 @@ export default class MyPlugin extends Plugin {
 		this.registerEvent(
 			this.app.workspace.on("editor-menu", (menu, editor, view) => {
 
-				// console.info('Clicou no menu de contexto');
 				if (!view) {
 					console.error('Não há view');
 					return;
@@ -49,30 +48,30 @@ export default class MyPlugin extends Plugin {
 
 		while ((match = imageRegex.exec(content)) !== null) {
 			const url = match[1] || match[2];
-			console.log('Vou tentar baixar:', url);
+			// console.log('Vou baixar:', url);
 
 			try {
 				const response = await fetch(url);
-				console.log('response:', response);
+				// console.log('response:', response);
 				if (!response.ok) {
 					new Notice('Error downloading image');
 					continue;
 				}
 				const blob = await response.blob();
 
+				const fileContent = await blob.arrayBuffer();
 				const fileExtension = mimeToExt[blob.type] || 'bin';
-				const fileName = `${await sha256(url)}.${fileExtension}`;
+				const fileName = `${await sha256(fileContent)}.${fileExtension}`;
 
 				const currentFilePath = view.file?.path ?? '/';
 				const directoryPath = currentFilePath.substring(0, currentFilePath.lastIndexOf('/'));
-
 				const imagesDirectory = `${directoryPath}/images`;
 
 				await this.createDirectoryIfNotExists(imagesDirectory);
 
 				const filePath = `${imagesDirectory}/${fileName}`;
 
-				await this.saveBlobToFile(blob, filePath);
+				await this.app.vault.createBinary(filePath, fileContent);
 
 				newContent = newContent.replace(url, `images/${fileName}`);
 				editor.replaceSelection(newContent);
@@ -83,11 +82,6 @@ export default class MyPlugin extends Plugin {
 		}
 	}
 
-	async saveBlobToFile(blob: Blob, filePath: string) {
-		const fileContent = await blob.arrayBuffer();
-		await this.app.vault.createBinary(filePath, fileContent);
-	}
-
 	async createDirectoryIfNotExists(directoryPath: string) {
 		const folder = this.app.vault.getAbstractFileByPath(directoryPath);
 		if (!folder) {
@@ -96,11 +90,8 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
-async function sha256(message: string): Promise<string> {
-	const encoder = new TextEncoder();
-	const data = encoder.encode(message);
-	const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+async function sha256(arrayBuffer: ArrayBuffer): Promise<string> {
+	const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
 	const hashArray = Array.from(new Uint8Array(hashBuffer));
 	return hashArray.map(b => ('00' + b.toString(16)).slice(-2)).join('');
 }
-
