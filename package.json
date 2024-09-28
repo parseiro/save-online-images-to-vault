@@ -1,7 +1,7 @@
 {
-	"name": "convert-images-to-base64",
-	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"name": "save-online-images-to-vault",
+	"version": "0.1.0",
+	"description": "Save images from remote to vault",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",

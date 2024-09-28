@@ -1,11 +1,11 @@
 {
-	"id": "convert-images-to-base64",
-	"name": "Convert Images to Base64",
-	"version": "1.0.0",
+	"id": "save-online-images-to-vault",
+	"name": "Save Online Images to Vault",
+	"version": "0.1.0",
 	"minAppVersion": "0.15.0",
-	"description": "Convert all images (externally linked) in a file to base64",
-	"author": "Leonardo V. Pinheiro",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "Fetches remote images and saves to your vault.",
+	"author": "Leonardo Vilela Pinheiro",
+	"authorUrl": "",
+	"fundingUrl": "",
 	"isDesktopOnly": true
 }
