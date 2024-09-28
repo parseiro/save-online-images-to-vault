@@ -21,7 +21,7 @@ export default class MyPlugin extends Plugin {
 				const imageRegex = /!\[.*?\]\((https?:\/\/.*?)\)|<img .*?src="(https?:\/\/.*?)"/;
 				if (imageRegex.test(selectedText)) {
 					menu.addItem((item) => {
-						item.setTitle("Convert Image to Base64")
+						item.setTitle("Save Remote Images")
 							.setIcon("image-file")
 							.onClick(async () => {
 								return this.saveImageAsFile(editor, view, selectedText);
