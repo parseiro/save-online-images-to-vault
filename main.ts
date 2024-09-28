@@ -24,7 +24,7 @@ export default class MyPlugin extends Plugin {
 						item.setTitle("Save Remote Images")
 							.setIcon("image-file")
 							.onClick(async () => {
-								return this.saveImageAsFile(editor, view, selectedText);
+								return this.replaceImagesAsFiles(editor, view, selectedText);
 							});
 					});
 				}
@@ -32,7 +32,7 @@ export default class MyPlugin extends Plugin {
 		);
 	}
 
-	async saveImageAsFile(editor: Editor, view: MarkdownView, content: string) {
+	async replaceImagesAsFiles(editor: Editor, view: MarkdownView, content: string) {
 		const imageRegex = /!\[.*?\]\((https?:\/\/.*?)\)|<img .*?src="(https?:\/\/.*?)"/g;
 		let match;
 		let newContent = content;
@@ -88,12 +88,12 @@ export default class MyPlugin extends Plugin {
 				}
 
 				newContent = newContent.replace(url, `images/${fileName}`);
-				editor.replaceSelection(newContent);
 				console.log(`Imagem salva como: images/${fileName}`);
 			} catch (error) {
 				console.error(`Erro ao salvar imagem: ${url}`, error);
 			}
 		}
+		editor.replaceSelection(newContent);
 	}
 
 	async createDirectoryIfNotExists(directoryPath: string) {
