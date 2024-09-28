@@ -1,8 +1,6 @@
 import {Notice, Plugin} from 'obsidian';
 import fetch from 'node-fetch';
-import {
-	Blob,
-} from 'fetch-blob/from.js';
+import {Blob,} from 'fetch-blob/from.js';
 
 export default class MyPlugin extends Plugin {
 
@@ -27,8 +25,7 @@ export default class MyPlugin extends Plugin {
 						item.setTitle("Convert Image to Base64")
 							.setIcon("image-file")
 							.onClick(async () => {
-								// console.log('onClick');
-								return this.convertImageToBase64(editor, selectedText);
+								return this.saveImageAsFile(editor, selectedText);
 							});
 					});
 				}
@@ -36,7 +33,7 @@ export default class MyPlugin extends Plugin {
 		);
 	}
 
-	async convertImageToBase64(editor, content: string) {
+	async saveImageAsFile(editor, content: string) {
 		const imageRegex = /!\[.*?\]\((https?:\/\/.*?)\)|<img .*?src="(https?:\/\/.*?)"/g;
 		let match;
 		let newContent = content;
@@ -57,25 +54,24 @@ export default class MyPlugin extends Plugin {
 				const blob = await response.blob();
 				const isBlob = blob instanceof Blob;
 				console.log('é do tipo blob: ', isBlob);
-				console.log('A resposta é do tipo:', typeof blob)
+				// console.log('A resposta é do tipo:', typeof blob)
 				console.log('blob recebido', blob);
 				if (!isBlob) {
 					new Notice('A resposta não é do tipo Blob.');
 					continue;
 				}
 
+				// Criar um nome único para o arquivo
+				const fileName = `${await sha256(url)}.png`;
+				const filePath = `${this.app.vault.getRoot().path}/${fileName}`;
 
-				// Converter para Base64
-				// const base64 = await this.blobToBase64(blob);
-				// @ts-ignore
-				const base64: string = await bytesToBase64DataUrl(await blob.text(), blob.type);
+				// Salvar o Blob como um arquivo
+				await this.saveBlobToFile(blob, filePath);
 
-				newContent = newContent.replace(url, base64);
-
-				// Atualiza o conteúdo no editor
-				// editor.replaceSelection(newContent);
-				console.log("Converti para:", base64);
+				// Substituir a URL pela referência ao arquivo
+				newContent = newContent.replace(url, fileName);
 				editor.replaceSelection(newContent);
+				console.log(`Imagem salva como: ${fileName}`);
 			} catch (error) {
 				console.error(`Erro ao converter imagem: ${url}`, error);
 			}
@@ -106,6 +102,21 @@ export default class MyPlugin extends Plugin {
 			reader.readAsDataURL(blob); // Isso inicia a leitura do Blob como uma string Base64
 		});
 	}
+
+	async saveBlobToFile(blob: Blob, filePath: string) {
+		const fileContent = await this.blobToText(blob);
+		const file = new TFile(filePath);
+		await this.app.vault.create(file.path, fileContent);
+	}
+
+	async blobToText(blob: Blob): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onloadend = () => resolve(reader.result as string);
+			reader.onerror = reject;
+			reader.readAsText(blob);
+		});
+	}
 }
 
 async function bytesToBase64DataUrl(bytes: never, type = "application/octet-stream"): Promise<string | ArrayBuffer | null> {
@@ -116,4 +127,12 @@ async function bytesToBase64DataUrl(bytes: never, type = "application/octet-stre
 		});
 		reader.readAsDataURL(new File([bytes], "", {type}));
 	});
+}
+
+async function sha256(message: string): Promise<string> {
+	const encoder = new TextEncoder();
+	const data = encoder.encode(message);
+	const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+	const hashArray = Array.from(new Uint8Array(hashBuffer));
+	return hashArray.map(b => ('00' + b.toString(16)).slice(-2)).join('');
 }
