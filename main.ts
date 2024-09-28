@@ -1,6 +1,6 @@
-import {Notice, Plugin} from 'obsidian';
+import {Editor, MarkdownView, Notice, Plugin} from 'obsidian';
 import fetch from 'node-fetch';
-import {Blob,} from 'fetch-blob/from.js';
+// import {Blob,} from 'fetch-blob/from.js';
 
 export default class MyPlugin extends Plugin {
 
@@ -25,7 +25,7 @@ export default class MyPlugin extends Plugin {
 						item.setTitle("Convert Image to Base64")
 							.setIcon("image-file")
 							.onClick(async () => {
-								return this.saveImageAsFile(editor, selectedText);
+								return this.saveImageAsFile(editor, view, selectedText);
 							});
 					});
 				}
@@ -33,18 +33,25 @@ export default class MyPlugin extends Plugin {
 		);
 	}
 
-	async saveImageAsFile(editor, content: string) {
+	async saveImageAsFile(editor: Editor, view: MarkdownView, content: string) {
 		const imageRegex = /!\[.*?\]\((https?:\/\/.*?)\)|<img .*?src="(https?:\/\/.*?)"/g;
 		let match;
 		let newContent = content;
 
-		// Encontra a URL da imagem
+		const mimeToExt: Record<string, string> = {
+			'image/jpeg': 'jpg',
+			'image/png': 'png',
+			'image/gif': 'gif',
+			'image/webp': 'webp',
+			'image/bmp': 'bmp',
+			'image/svg+xml': 'svg',
+		};
+
 		while ((match = imageRegex.exec(content)) !== null) {
 			const url = match[1] || match[2];
-			// console.log('Vou tentar baixar:', url);
+			console.log('Vou tentar baixar:', url);
 
 			try {
-				// Baixar a imagem
 				const response = await fetch(url);
 				console.log('response:', response);
 				if (!response.ok) {
@@ -52,81 +59,41 @@ export default class MyPlugin extends Plugin {
 					continue;
 				}
 				const blob = await response.blob();
-				const isBlob = blob instanceof Blob;
-				console.log('é do tipo blob: ', isBlob);
-				// console.log('A resposta é do tipo:', typeof blob)
-				console.log('blob recebido', blob);
-				if (!isBlob) {
-					new Notice('A resposta não é do tipo Blob.');
-					continue;
-				}
 
-				// Criar um nome único para o arquivo
-				const fileName = `${await sha256(url)}.png`;
-				const filePath = `${this.app.vault.getRoot().path}/${fileName}`;
+				const fileExtension = mimeToExt[blob.type] || 'bin';
+				const fileName = `${await sha256(url)}.${fileExtension}`;
 
-				// Salvar o Blob como um arquivo
+				const currentFilePath = view.file?.path ?? '/';
+				const directoryPath = currentFilePath.substring(0, currentFilePath.lastIndexOf('/'));
+
+				const imagesDirectory = `${directoryPath}/images`;
+
+				await this.createDirectoryIfNotExists(imagesDirectory);
+
+				const filePath = `${imagesDirectory}/${fileName}`;
+
 				await this.saveBlobToFile(blob, filePath);
 
-				// Substituir a URL pela referência ao arquivo
-				newContent = newContent.replace(url, fileName);
+				newContent = newContent.replace(url, `images/${fileName}`);
 				editor.replaceSelection(newContent);
-				console.log(`Imagem salva como: ${fileName}`);
+				console.log(`Imagem salva como: images/${fileName}`);
 			} catch (error) {
-				console.error(`Erro ao converter imagem: ${url}`, error);
+				console.error(`Erro ao salvar imagem: ${url}`, error);
 			}
 		}
 	}
 
-	async blobToBase64(blob: Blob): Promise<string> {
-		return new Promise((resolve, reject) => {
-			const reader = new FileReader();
-
-			reader.onloadend = () => {
-				// O resultado do FileReader já está em Base64, mas inclui o prefixo "data:". Vamos garantir que
-				// estamos pegando apenas a parte Base64 correta da string.
-				const result = reader.result as string;
-				const base64Data = result.split(',')[1]; // Extrair apenas a parte Base64
-
-				if (base64Data) {
-					resolve(base64Data);
-				} else {
-					reject(new Error('Erro ao converter Blob para Base64.'));
-				}
-			};
-
-			reader.onerror = () => {
-				reject(new Error('Erro ao ler o Blob.'));
-			};
-
-			reader.readAsDataURL(blob); // Isso inicia a leitura do Blob como uma string Base64
-		});
-	}
-
 	async saveBlobToFile(blob: Blob, filePath: string) {
-		const fileContent = await this.blobToText(blob);
-		const file = new TFile(filePath);
-		await this.app.vault.create(file.path, fileContent);
+		const fileContent = await blob.arrayBuffer();
+		await this.app.vault.createBinary(filePath, fileContent);
 	}
 
-	async blobToText(blob: Blob): Promise<string> {
-		return new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.onloadend = () => resolve(reader.result as string);
-			reader.onerror = reject;
-			reader.readAsText(blob);
-		});
+	async createDirectoryIfNotExists(directoryPath: string) {
+		const folder = this.app.vault.getAbstractFileByPath(directoryPath);
+		if (!folder) {
+			await this.app.vault.createFolder(directoryPath);
+		}
 	}
-}
-
-async function bytesToBase64DataUrl(bytes: never, type = "application/octet-stream"): Promise<string | ArrayBuffer | null> {
-	return await new Promise((resolve, reject) => {
-		const reader = Object.assign(new FileReader(), {
-			onload: () => resolve(reader.result),
-			onerror: () => reject(reader.error),
-		});
-		reader.readAsDataURL(new File([bytes], "", {type}));
-	});
 }
 
 async function sha256(message: string): Promise<string> {
@@ -136,3 +103,4 @@ async function sha256(message: string): Promise<string> {
 	const hashArray = Array.from(new Uint8Array(hashBuffer));
 	return hashArray.map(b => ('00' + b.toString(16)).slice(-2)).join('');
 }
+
