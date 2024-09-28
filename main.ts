@@ -6,7 +6,7 @@ export default class MyPlugin extends Plugin {
 
 	async onload() {
 		this.registerEvent(
-			this.app.workspace.on("editor-menu", (menu, editor, view) => {
+			this.app.workspace.on("editor-menu", (menu, editor, view: MarkdownView) => {
 
 				if (!view) {
 					console.error('Não há view');
@@ -46,6 +46,7 @@ export default class MyPlugin extends Plugin {
 			'image/svg+xml': 'svg',
 		};
 
+		const vault = this.app.vault;
 		while ((match = imageRegex.exec(content)) !== null) {
 			const url = match[1] || match[2];
 			// console.log('Vou baixar:', url);
@@ -71,7 +72,20 @@ export default class MyPlugin extends Plugin {
 
 				const filePath = `${imagesDirectory}/${fileName}`;
 
-				await this.app.vault.createBinary(filePath, fileContent);
+				try {
+					await vault.createBinary(filePath, fileContent);
+				} catch (error) {
+					if (error.message === "File already exists.") {
+						const file = vault.getAbstractFileByPath(filePath);
+						if (file) {
+							await vault.delete(file, true);
+							await vault.createBinary(filePath, fileContent);
+						}
+					} else {
+						throw error;
+					}
+					// console.log(`Erro (${typeof error}):`, error.message);
+				}
 
 				newContent = newContent.replace(url, `images/${fileName}`);
 				editor.replaceSelection(newContent);
@@ -83,9 +97,10 @@ export default class MyPlugin extends Plugin {
 	}
 
 	async createDirectoryIfNotExists(directoryPath: string) {
-		const folder = this.app.vault.getAbstractFileByPath(directoryPath);
+		const vault = this.app.vault;
+		const folder = vault.getAbstractFileByPath(directoryPath);
 		if (!folder) {
-			await this.app.vault.createFolder(directoryPath);
+			await vault.createFolder(directoryPath);
 		}
 	}
 }
